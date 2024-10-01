@@ -1,12 +1,3 @@
-# Set the root directory to the current directory
-$rootDir = Get-Location
-
-# Get the name of the root folder
-$rootFolderName = (Split-Path -Path $rootDir -Leaf).ToUpper()
-
-# Read the content.json file
-$linkJson = Get-Content -Path (Join-Path -Path $rootDir -ChildPath "links.json") | ConvertFrom-Json
-
 # Function to create redirect HTML content
 function Create-RedirectHtml($url) {
     return @"
@@ -24,27 +15,36 @@ function Create-RedirectHtml($url) {
 "@
 }
 
-# Create subfolders and their index.html files
-foreach ($subfolder in $linkJson.subfolders) {
-    $subfolderPath = Join-Path -Path $rootDir -ChildPath $subfolder.name
-    $indexPath = Join-Path -Path $subfolderPath -ChildPath "index.html"
+# Function to process a directory
+function Process-Directory($directoryPath) {
+    $linksJsonPath = Join-Path -Path $directoryPath -ChildPath "links.json"
+    
+    if (Test-Path $linksJsonPath) {
+        # Read the links.json file
+        $linkJson = Get-Content -Path $linksJsonPath | ConvertFrom-Json
 
-    # Create subfolder if it doesn't exist
-    if (-not (Test-Path $subfolderPath)) {
-        New-Item -ItemType Directory -Path $subfolderPath | Out-Null
-    }
+        # Create subfolders and their index.html files
+        foreach ($subfolder in $linkJson.subfolders) {
+            $subfolderPath = Join-Path -Path $directoryPath -ChildPath $subfolder.name
+            $indexPath = Join-Path -Path $subfolderPath -ChildPath "index.html"
 
-    # Create or update index.html in the subfolder
-    Create-RedirectHtml $subfolder.url | Out-File -FilePath $indexPath -Encoding UTF8 -Force
-}
+            # Create subfolder if it doesn't exist
+            if (-not (Test-Path $subfolderPath)) {
+                New-Item -ItemType Directory -Path $subfolderPath | Out-Null
+            }
 
-# Create the content for the root index.html
-$htmlContent = @"
+            # Create or update index.html in the subfolder
+            Create-RedirectHtml $subfolder.url | Out-File -FilePath $indexPath -Encoding UTF8 -Force
+        }
+
+        # Create the content for the index.html
+        $folderName = (Split-Path -Path $directoryPath -Leaf).ToUpper()
+        $htmlContent = @"
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>$rootFolderName Links</title>
+    <title>$folderName Links</title>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -75,24 +75,40 @@ $htmlContent = @"
     </style>
 </head>
 <body>
-    <h1>$rootFolderName Links</h1>
+    <h1>$folderName Links</h1>
     <ul>
 "@
 
-# Add links for each subfolder
-foreach ($subfolder in $linkJson.subfolders) {
-    $capitalizedName = (Get-Culture).TextInfo.ToTitleCase($subfolder.name)
-    $htmlContent += "        <li><a href=`"$($subfolder.name)/index.html`" target=`"_blank`">$capitalizedName</a></li>`n"
-}
+        # Add links for each subfolder
+        foreach ($subfolder in $linkJson.subfolders) {
+            $capitalizedName = (Get-Culture).TextInfo.ToTitleCase($subfolder.name)
+            $htmlContent += "        <li><a href=`"$($subfolder.name)/index.html`" target=`"_blank`">$capitalizedName</a></li>`n"
+        }
 
-# Close the HTML content
-$htmlContent += @"
+        # Close the HTML content
+        $htmlContent += @"
     </ul>
 </body>
 </html>
 "@
 
-# Write the content to index.html in the root directory, overwriting if it exists
-$htmlContent | Out-File -FilePath (Join-Path -Path $rootDir -ChildPath "index.html") -Encoding UTF8 -Force
+        # Write the content to index.html in the current directory
+        $htmlContent | Out-File -FilePath (Join-Path -Path $directoryPath -ChildPath "index.html") -Encoding UTF8 -Force
 
-Write-Host "Root index.html and subfolders have been generated successfully."
+        Write-Host "Generated index.html for $directoryPath"
+    }
+    else {
+        # If no links.json, recursively process subdirectories
+        Get-ChildItem -Path $directoryPath -Directory | ForEach-Object {
+            Process-Directory $_.FullName
+        }
+    }
+}
+
+# Set the root directory to the current directory
+$rootDir = Get-Location
+
+# Start processing from the root directory
+Process-Directory $rootDir
+
+Write-Host "Index generation completed successfully."
