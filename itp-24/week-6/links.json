@@ -13,8 +13,8 @@
       "url": "https://github.com/Mikubill/sd-webui-controlnet"
     },
     {
-      "name": "ControlNet v1.1 Models (for SD 1.5) - Fast",
-      "url": "https://huggingface.co/comfyanonymous/ControlNet-v1-1_fp16_safetensors/tree/main"
+      "name": "ControlNet v1.1 Models (for SD 1.5)",
+      "url": "https://huggingface.co/lllyasviel/ControlNet-v1-1/tree/main"
     },
     {
       "name": "ControlNet Union Models (SDXL)",
